@@ -2538,12 +2538,18 @@ def sales_tables(branch_code):
     table_statuses = {}
     draft_counts = {}
 
-    existing_tables = Table.query.filter_by(branch_code=branch_code).all()
-    for table in existing_tables:
-        table_statuses[table.table_number] = table.status
+    try:
+        existing_tables = Table.query.filter_by(branch_code=branch_code).all()
+        for table in existing_tables:
+            table_statuses[safe_table_number(table.table_number)] = table.status
 
-    # Count active draft orders per table
-    draft_orders = DraftOrder.query.filter_by(branch_code=branch_code, status='draft').all()
+        # Count active draft orders per table
+        draft_orders = DraftOrder.query.filter_by(branch_code=branch_code, status='draft').all()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error('sales_tables query failed: %s', e)
+        existing_tables = []
+        draft_orders = []
     for draft in draft_orders:
         # Safe handling of table_number - convert to int, default to 0 if None/invalid
         table_num = safe_table_number(draft.table_number)
