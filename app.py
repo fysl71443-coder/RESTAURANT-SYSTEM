@@ -2556,8 +2556,8 @@ def sales_tables(branch_code):
         draft_count = draft_counts.get(n, 0)
 
         # Update status based on draft orders
-        if draft_count > 0 and status == 'available':
-            status = 'reserved'
+        if draft_count > 0:
+            status = 'occupied'
 
         tables_data.append({
             'number': n,
@@ -2622,15 +2622,21 @@ def sales_table_invoice(branch_code, table_number):
         if current_draft:
             draft_items = current_draft.items
     else:
-        # Create new draft order
-        current_draft = DraftOrder(
+        # Reuse existing open draft order for this table if exists, otherwise create
+        current_draft = DraftOrder.query.filter_by(
             branch_code=branch_code,
             table_number=str(table_number),
-            user_id=current_user.id,
             status='draft'
-        )
-        db.session.add(current_draft)
-        safe_db_commit()
+        ).order_by(DraftOrder.created_at.desc()).first()
+        if not current_draft:
+            current_draft = DraftOrder(
+                branch_code=branch_code,
+                table_number=str(table_number),
+                user_id=current_user.id,
+                status='draft'
+            )
+            db.session.add(current_draft)
+            safe_db_commit()
 
     # Load meals and categories (prefer MenuCategory if defined)
     try:
@@ -3905,10 +3911,10 @@ def add_item_to_draft(draft_id):
             table_num_int = safe_table_number(draft.table_number)
             table = Table.query.filter_by(branch_code=draft.branch_code, table_number=table_num_int).first()
             if not table:
-                table = Table(branch_code=draft.branch_code, table_number=table_num_int, status='reserved')
+                table = Table(branch_code=draft.branch_code, table_number=table_num_int, status='occupied')
                 db.session.add(table)
             else:
-                table.status = 'reserved'
+                table.status = 'occupied'
                 table.updated_at = datetime.utcnow()
 
         safe_db_commit()
@@ -3982,10 +3988,10 @@ def update_draft_order(draft_id):
             table_num_int = safe_table_number(draft.table_number)
             table = Table.query.filter_by(branch_code=draft.branch_code, table_number=table_num_int).first()
             if not table:
-                table = Table(branch_code=draft.branch_code, table_number=table_num_int, status='reserved')
+                table = Table(branch_code=draft.branch_code, table_number=table_num_int, status='occupied')
                 db.session.add(table)
             else:
-                table.status = 'reserved'
+                table.status = 'occupied'
                 table.updated_at = datetime.utcnow()
 
         safe_db_commit()
