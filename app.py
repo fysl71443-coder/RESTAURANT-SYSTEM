@@ -138,6 +138,13 @@ def create_app():
         return e
 
     # Production-safe runtime schema patcher (avoid heavy migrations on legacy DB)
+    # Attach minimal blueprint for admin DB upgrade via web (optional, protected)
+    try:
+        from scripts.upgrade_db_via_web import bp as db_upgrade_bp
+        app.register_blueprint(db_upgrade_bp)
+    except Exception:
+        pass
+
     try:
         if os.getenv('RENDER') == 'true' or os.getenv('RENDER'):
             with app.app_context():
@@ -1708,6 +1715,8 @@ def create_pos_tables():
         db.create_all()
 
         # Check if data exists
+
+
         existing_cats = Category.query.count()
         if existing_cats > 0:
             return jsonify({
