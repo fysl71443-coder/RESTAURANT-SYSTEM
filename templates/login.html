@@ -63,7 +63,7 @@
     {% endif %}
   {% endwith %}
 
-  <form method="POST" novalidate accept-charset="UTF-8">
+  <form id="login-form" method="POST" novalidate accept-charset="UTF-8">
     {{ form.hidden_tag() }}
     <div class="mb-3 input-group">
       <span class="input-group-text bg-transparent border-0 text-white">👤</span>
@@ -90,5 +90,30 @@ function togglePassword() {
   pwd.type = (pwd.type === "password") ? "text" : "password";
 }
 </script>
+
+{% block scripts %}
+<script>
+// Safety: ensure login form always submits, even if an old JS cached listener blocks it
+(function(){
+  const f = document.getElementById('login-form');
+  if(!f) return;
+  // Remove any existing submit listeners that call preventDefault indirectly
+  const clone = f.cloneNode(true);
+  f.parentNode.replaceChild(clone, f);
+  // As extra guarantee, attach simple submit validator that only checks required fields quickly
+  clone.addEventListener('submit', function(e){
+    const u = clone.querySelector('input[name="username"]');
+    const p = clone.querySelector('input[name="password"]');
+    if(!u || !p || !u.value.trim() || !p.value.trim()){
+      e.preventDefault();
+      alert('يرجى ملء جميع الحقول المطلوبة');
+      return;
+    }
+    // allow normal submission to server
+  }, { once:false });
+})();
+</script>
+{% endblock %}
+
 
 {% endblock %}

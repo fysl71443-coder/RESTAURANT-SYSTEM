@@ -160,22 +160,22 @@ function selectTable(tableNumber, branchCode) {
 }
 
 // Form validation
-function validateForm(formId) {
-    const form = document.getElementById(formId);
-    if (!form) return false;
-    
+function validateForm(formOrId) {
+    const form = (typeof formOrId === 'string') ? document.getElementById(formOrId) : formOrId;
+    if (!form) return true; // لا تمنع الإرسال إذا لم نجد النموذج
+
     const requiredFields = form.querySelectorAll('[required]');
     let isValid = true;
-    
+
     requiredFields.forEach(field => {
-        if (!field.value.trim()) {
+        if (!field.value || !field.value.toString().trim()) {
             field.classList.add('is-invalid');
             isValid = false;
         } else {
             field.classList.remove('is-invalid');
         }
     });
-    
+
     return isValid;
 }
 
@@ -216,10 +216,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Add form validation to all forms
+    // Add form validation to all forms except login-form (server-side validates)
     document.querySelectorAll('form').forEach(form => {
         form.addEventListener('submit', function(e) {
-            if (!validateForm(this.id)) {
+            // Skip client-side block for login form to ensure POST reaches server
+            if (this && (this.id === 'login-form' || this.dataset.skipValidation === '1')) { return; }
+            if (!validateForm(this)) {
                 e.preventDefault();
                 showAlert('يرجى ملء جميع الحقول المطلوبة', 'warning');
             }

@@ -745,6 +745,17 @@ def inject_conf_vars():
         'get_locale': get_locale
     }
 
+# Asset version for cache busting of static files
+ASSET_VERSION = os.getenv('ASSET_VERSION', '20250909')
+
+@app.context_processor
+def inject_asset_version():
+    try:
+        return dict(ASSET_VERSION=ASSET_VERSION)
+    except Exception:
+        return dict(ASSET_VERSION='0')
+
+
 @app.route('/')
 def index():
     return redirect(url_for('login'))
@@ -829,7 +840,7 @@ def login():
         username = (username or '').strip()
         password = (password or '').strip()
 
-        # Debug خفيف لتشخيص الإنتاج (يبقى آمن ولا يطبع كلمات المرور)
+        # Debug خفيف لتشخيص الإنتاج (لا يطبع كلمات المرور)
         try:
             print('Login POST debug => keys:', list(request.form.keys()), 'content-type:', request.headers.get('Content-Type'))
         except Exception:
