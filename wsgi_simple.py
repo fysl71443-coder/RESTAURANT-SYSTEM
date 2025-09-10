@@ -88,39 +88,35 @@ def create_simple_app():
 
         return jsonify(results)
 
-    # Add admin DB upgrade route
+    # Add admin DB upgrade route (simplified)
     @app.route('/admin/db/upgrade')
     def admin_db_upgrade():
         try:
-            from flask_migrate import upgrade
-            from alembic import command
-            from alembic.config import Config as AlembicConfig
-            import os
-
-            # Get migration directory
-            migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
-            alembic_cfg = AlembicConfig(os.path.join(migrations_dir, 'alembic.ini'))
-            alembic_cfg.set_main_option('script_location', migrations_dir)
-
-            # Run upgrade
+            # Simple DB check without complex migrations
             with app.app_context():
-                command.upgrade(alembic_cfg, 'heads')
-
-                # Check draft_orders columns
+                # Check if draft_orders table exists and get columns
                 from sqlalchemy import text
-                result = db.session.execute(text("""
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_name = 'draft_orders'
-                    ORDER BY column_name
-                """))
-                columns = [row[0] for row in result.fetchall()]
+                try:
+                    result = db.session.execute(text("""
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = 'draft_orders'
+                        ORDER BY column_name
+                    """))
+                    columns = [row[0] for row in result.fetchall()]
 
-                return jsonify({
-                    'success': True,
-                    'message': 'Database upgrade completed successfully',
-                    'draft_orders_columns': columns
-                })
+                    return jsonify({
+                        'success': True,
+                        'message': 'Database connection successful',
+                        'draft_orders_columns': columns,
+                        'note': 'Run migrations via start script for full upgrade'
+                    })
+                except Exception as db_error:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Database query failed: {str(db_error)}',
+                        'note': 'Table may not exist yet - migrations needed'
+                    }), 500
 
         except Exception as e:
             return jsonify({
