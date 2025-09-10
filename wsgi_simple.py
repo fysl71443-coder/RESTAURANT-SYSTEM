@@ -88,6 +88,64 @@ def create_simple_app():
 
         return jsonify(results)
 
+    # Add admin DB upgrade route
+    @app.route('/admin/db/upgrade')
+    def admin_db_upgrade():
+        try:
+            from flask_migrate import upgrade
+            from alembic import command
+            from alembic.config import Config as AlembicConfig
+            import os
+
+            # Get migration directory
+            migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')
+            alembic_cfg = AlembicConfig(os.path.join(migrations_dir, 'alembic.ini'))
+            alembic_cfg.set_main_option('script_location', migrations_dir)
+
+            # Run upgrade
+            with app.app_context():
+                command.upgrade(alembic_cfg, 'heads')
+
+                # Check draft_orders columns
+                from sqlalchemy import text
+                result = db.session.execute(text("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'draft_orders'
+                    ORDER BY column_name
+                """))
+                columns = [row[0] for row in result.fetchall()]
+
+                return jsonify({
+                    'success': True,
+                    'message': 'Database upgrade completed successfully',
+                    'draft_orders_columns': columns
+                })
+
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    # Add basic login route
+    @app.route('/')
+    @app.route('/login')
+    def login():
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head><title>Restaurant System</title></head>
+        <body>
+            <h1>Restaurant System</h1>
+            <p>System is running in simplified mode.</p>
+            <p><a href="/health">Health Check</a></p>
+            <p><a href="/admin/db/upgrade">Database Upgrade</a></p>
+            <p><a href="/test-dependencies">Test Dependencies</a></p>
+        </body>
+        </html>
+        '''
+
     return app
 
 # Create the application
