@@ -1,8 +1,8 @@
 import logging
 from logging.config import fileConfig
+import os
 
-from flask import current_app
-
+from sqlalchemy import create_engine
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -16,28 +16,42 @@ logger = logging.getLogger('alembic.env')
 
 
 def get_engine():
-    try:
-        # this works with Flask-SQLAlchemy<3 and Alchemical
-        return current_app.extensions['migrate'].db.get_engine()
-    except (TypeError, AttributeError):
-        # this works with Flask-SQLAlchemy>=3
-        return current_app.extensions['migrate'].db.engine
+    """Get engine directly from DATABASE_URL environment variable"""
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        # Fallback to SQLite for local development
+        database_url = 'sqlite:///app.db'
+
+    # Handle postgres:// to postgresql:// conversion (Render compatibility)
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+    return create_engine(database_url)
 
 
 def get_engine_url():
-    try:
-        return get_engine().url.render_as_string(hide_password=False).replace(
-            '%', '%%')
-    except AttributeError:
-        return str(get_engine().url).replace('%', '%%')
+    """Get database URL for Alembic configuration"""
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        database_url = 'sqlite:///app.db'
+
+    # Handle postgres:// to postgresql:// conversion
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+    return database_url.replace('%', '%%')
 
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
+# Set database URL directly from environment
 config.set_main_option('sqlalchemy.url', get_engine_url())
-target_db = current_app.extensions['migrate'].db
+
+# Import models for metadata (without Flask context)
+try:
+    from models import db
+    target_metadata = db.metadata
+except ImportError:
+    # Fallback if models can't be imported
+    target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -46,9 +60,8 @@ target_db = current_app.extensions['migrate'].db
 
 
 def get_metadata():
-    if hasattr(target_db, 'metadatas'):
-        return target_db.metadatas[None]
-    return target_db.metadata
+    """Get metadata for migrations"""
+    return target_metadata
 
 
 def run_migrations_offline():
@@ -90,17 +103,14 @@ def run_migrations_online():
                 directives[:] = []
                 logger.info('No changes in schema detected.')
 
-    conf_args = current_app.extensions['migrate'].configure_args
-    if conf_args.get("process_revision_directives") is None:
-        conf_args["process_revision_directives"] = process_revision_directives
-
     connectable = get_engine()
 
     with connectable.connect() as connection:
         context.configure(
             connection=connection,
             target_metadata=get_metadata(),
-            **conf_args
+            process_revision_directives=process_revision_directives,
+            render_as_batch=True  # For SQLite compatibility
         )
 
         with context.begin_transaction():

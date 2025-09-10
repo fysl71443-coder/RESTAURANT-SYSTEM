@@ -13,9 +13,12 @@ export WORKERS=${WORKERS:-1}
 export PORT=${PORT:-10000}
 export FLASK_APP=app
 
-echo "[start_render_simple] Applying Alembic migrations..."
-if ! python -m flask db upgrade heads; then
-  echo "[start_render_simple] WARNING: flask db upgrade failed; continuing anyway"
+echo "[start_render_simple] Applying database migrations..."
+if ! python run_migrations.py; then
+  echo "[start_render_simple] WARNING: run_migrations.py failed; trying flask db upgrade..."
+  if ! python -m flask db upgrade heads; then
+    echo "[start_render_simple] WARNING: both migration methods failed; continuing anyway"
+  fi
 fi
 
 echo "[start_render_simple] Running DB consistency fixes (best-effort)..."
