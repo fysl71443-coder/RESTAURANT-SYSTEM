@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: bash scripts/start_render_simple.sh
+    startCommand: python run_migrations.py && gunicorn --worker-class sync --workers 1 -b 0.0.0.0:$PORT wsgi:application
     envVars:
       - key: FLASK_ENV
         value: production
@@ -16,6 +16,8 @@ services:
         value: "0"
       - key: USE_EVENTLET_FOR_SERVER
         value: "0"
+      - key: FLASK_APP
+        value: app
 
 databases:
   - name: restaurant-db
